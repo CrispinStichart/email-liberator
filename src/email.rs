@@ -32,10 +32,9 @@ impl Email {
                 .and_then(|cow| std::str::from_utf8(cow).ok())
                 .unwrap()
                 .to_string(),
-            body: "not implemented yet".to_owned(),
-            // body: std::str::from_utf8(msg.body().unwrap())
-            //     .unwrap()
-            //     .to_string(),
+            body: std::str::from_utf8(msg.body().unwrap())
+                .unwrap()
+                .to_string(),
         }
     }
 

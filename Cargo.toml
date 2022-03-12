@@ -14,8 +14,4 @@ clap = { version = "3.1.6", features = ["derive"] }
 which = "4.2.4"
 rustls = "0.20.4"
 imap = "3.0.0-alpha.6"
-
-# [dependencies.imap]
-# version = "3.0.0-alpha.6"
-# default-features = false
-# feature = "rustls-tls"
+anyhow = "1.0"

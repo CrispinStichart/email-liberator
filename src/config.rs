@@ -1,3 +1,4 @@
+use anyhow::Result;
 use serde::Deserialize;
 use std::fs::{self};
 
@@ -37,10 +38,10 @@ pub enum Sections {
     ENVELOPE,
 }
 
-pub fn get_config(file: Option<String>) -> Config {
-    let s = fs::read_to_string(file.unwrap_or(DEFAULT_CONFIG_FILE.to_string())).unwrap();
-    let config: Config = toml::from_str(&s).unwrap();
-    config
+pub fn get_config(file: Option<String>) -> Result<Config> {
+    let s = fs::read_to_string(file.unwrap_or(DEFAULT_CONFIG_FILE.to_string()))?;
+    let config: Config = toml::from_str(&s)?;
+    Ok(config)
 }
 
 #[cfg(test)]
@@ -49,6 +50,6 @@ mod tests {
 
     #[test]
     fn test_get_config() {
-        get_config(None);
+        get_config(None).unwrap();
     }
 }
