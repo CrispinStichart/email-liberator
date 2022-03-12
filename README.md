@@ -1,4 +1,4 @@
-# Automatic Mail Filter
+# Email Liberator
 
 # Current State: WORK IN PROGRESS
 
@@ -40,3 +40,16 @@ There is a `--catch-up` flag that, if set, will look for a `last_message_id` fil
 Regardless of whether the `last_message_id` previously existed, the client will then write the ID of most recently downloaded message, before going into the IDLE state. In the IDLE state, it will continually update `last_message_id` as new emails come in.
 
 If `--no-idle` is set, the client will instead exit after the catch-up step. In this way, you can configure the client to run periodically, via a `cron` job or other scheduling service, if you don't need to take action in real time. 
+
+## Do one thing, and do it well?
+
+I've just been struck by the inspiration to ship this as multiple binaries, Unix style. 
+
+* One will idle, and emit all messages on stdout in JSON (this one could also do the catch up)
+* One will accept an email via stdin and run it through all the scripts in the in the configuration file
+  * It will check for a response and then pass the response and UID to a third binary
+* One will accept response information, including the email's UID, from stdin, and then talk to the webserver.
+
+They will all share the configuration file, but they can also all be used independently in any sort of pipeline you want. 
+
+With this in mind, it makes sense to allow the idle/catch-up program to be configured to output whatever IMAP-protocol fields you want. 

@@ -1,7 +1,15 @@
+[connection]
+
 hostname = "imap.gmail.com"
 username = "crispinstichart" # With or without the '@gmail.com'
 password = "lolno"
 port = 993
+
+[imap_options]
+
+sections = ["FLAGS", "INTERNALDATE", "RFC822", "ENVELOPE"]
+
+
 
 
 [[scripts]]

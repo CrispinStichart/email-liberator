@@ -1,6 +1,8 @@
 use config::Script;
-use imap::{self};
-use serde::{Deserialize, Serialize};
+use email::Email;
+use imap::extensions::idle::SetReadTimeout;
+use imap::{self, Session};
+use std::error::Error;
 use std::io;
 
 use std::process::{Command, Output};
@@ -9,61 +11,30 @@ use std::{
     io::{Read, Write},
 };
 use which::which;
-
 pub mod config;
+pub mod email;
 
-const CATCH_UP_FILE: &str = "last_message_id";
-
-#[derive(Serialize, Deserialize)]
-struct Email {
-    sender: String,
-    subject: String,
-    body: String,
-}
-
-impl Email {
-    fn from_fetch(msg: &imap::types::Fetch) -> Email {
-        Email {
-            // jesus christ :|
-            // This looks gnarly as heck; there's got to be a better way.
-            // Is there a macro that can unwrap multiple nested items?
-            sender: msg
-                .envelope()
-                .unwrap()
-                .sender
-                .as_ref()
-                .unwrap()
-                .iter()
-                .map(|a| format!("{:?}", a))
-                .collect::<Vec<String>>()
-                .join(" "),
-            subject: msg
-                .envelope()
-                .unwrap()
-                .subject
-                .as_ref()
-                .and_then(|cow| std::str::from_utf8(cow).ok())
-                .unwrap()
-                .to_string(),
-            body: "not implemented yet".to_owned(),
-            // body: std::str::from_utf8(msg.body().unwrap())
-            //     .unwrap()
-            //     .to_string(),
-        }
-    }
-
-    fn to_json(&self) -> String {
-        serde_json::to_string(&self).unwrap()
-    }
-}
-
-fn login(config: &config::Config) -> imap::Session<impl Read + Write> {
-    let client = imap::ClientBuilder::new(&config.hostname, config.port)
-        .native_tls()
-        .expect("unable to connect :(");
+pub fn login(config: &config::Config) -> imap::Session<impl Read + Write + SetReadTimeout> {
+    let client = imap::ClientBuilder::new(
+        &config
+            .connection
+            .hostname,
+        config
+            .connection
+            .port,
+    )
+    .native_tls()
+    .expect("unable to connect :(");
 
     let mut imap_session = client
-        .login(&config.username, &config.password)
+        .login(
+            &config
+                .connection
+                .username,
+            &config
+                .connection
+                .password,
+        )
         .map_err(|e| e.0)
         .expect("unable to login :(");
 
@@ -74,27 +45,20 @@ fn login(config: &config::Config) -> imap::Session<impl Read + Write> {
     imap_session
 }
 
-pub fn catch_up(config: &config::Config) {
-    if let Some(last_uid) = get_last_message_id() {
-        let mut session = login(&config);
-        // The '*' means the newest. We add one to the last seen UID
-        // so we don't fetch the one we've already seen.
-        let range = format!("{}:*", last_uid + 1);
-        let query = "FLAGS INTERNALDATE RFC822 ENVELOPE)";
-        let messages = session.uid_fetch(range, query);
-        if let Ok(messages) = messages {
-            for msg in messages.iter() {
-                let email = Email::from_fetch(msg);
-                run_all_scripts(email, config)
-            }
-        }
-    }
+pub fn fetch_email(
+    uid: u32,
+    session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
+) -> Email {
+    let query = "FLAGS INTERNALDATE RFC822 ENVELOPE)";
+    let messages = session.uid_fetch(uid.to_string(), query);
 
-    // If there wasn't a UID saved, there's nothing we need to do here.
-    ()
+    Email::from_fetch(
+        messages
+            .unwrap()
+            .get(0)
+            .unwrap(),
+    )
 }
-
-pub fn idle(_config: &config::Config) {}
 
 fn run_all_scripts(message: Email, config: &config::Config) {
     for script in config
@@ -117,27 +81,18 @@ fn run_script(script: &Script, message: &Email) -> io::Result<Output> {
         Command::new(&script.location)
     };
 
-    command.arg(message.to_json());
+    command.arg(
+        message
+            .to_json()
+            .unwrap(),
+    );
 
     command.output()
-}
-
-fn get_last_message_id() -> Option<u32> {
-    fs::read_to_string(CATCH_UP_FILE)
-        .ok()?
-        .trim()
-        .parse::<u32>()
-        .ok()
-}
-
-fn write_last_message_id(uid: u32) {
-    fs::write(CATCH_UP_FILE, uid.to_string()).expect("Couldn't create the catch up file!");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::get_config;
 
     #[test]
     fn test_run_script() {
