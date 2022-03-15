@@ -7,7 +7,7 @@ const DEFAULT_CONFIG_FILE: &str = "autonomous_mail_client.toml";
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub connection: Connection,
-    pub imap_options: ImapOptions,
+    pub imap_options: Option<ImapOptions>,
     pub scripts: Option<Vec<Script>>,
 }
 
@@ -23,6 +23,7 @@ pub struct Connection {
 pub struct Script {
     pub interpreter: Option<String>,
     pub location: String,
+    pub sortkey: Option<i32>,
 }
 
 #[derive(Deserialize, Debug)]

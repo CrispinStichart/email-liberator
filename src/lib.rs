@@ -1,15 +1,12 @@
-use config::Script;
+use anyhow::Result;
 use email::Email;
 use imap::extensions::idle::SetReadTimeout;
 use imap::{self};
 
-use std::io;
-
 use std::io::{Read, Write};
-use which::which;
+pub mod action;
 pub mod config;
 pub mod email;
-use anyhow::Result;
 
 // TODO: add option to open mailbox in read-only (with .examine() instead of .select())
 pub fn login(config: &config::Config) -> Result<imap::Session<impl Read + Write + SetReadTimeout>> {
@@ -54,7 +51,21 @@ pub fn fetch_email(
     )
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-// }
+pub fn delete(
+    uid: &u32,
+    session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
+) -> Result<()> {
+    session.uid_store(&uid.to_string(), imap::types::Flag::Deleted.to_string())?;
+    session.uid_expunge(&uid.to_string())?;
+    Ok(())
+}
+
+pub fn move_email(
+    uid: &u32,
+    mailbox_name: &str,
+    session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
+) -> Result<()> {
+    session.uid_mv(&uid.to_string(), mailbox_name)?;
+    delete(uid, session)?;
+    Ok(())
+}

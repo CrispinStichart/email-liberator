@@ -1,28 +1,28 @@
+use anyhow::{bail, Result};
+use mail_client::action;
 use mail_client::config;
-use mail_client::email;
 use std::io;
-use std::process::{Command, Output};
+use std::process::Command;
 use which::which;
-fn main() {
-    let scripts = config::get_config(None)
-        .unwrap()
-        .scripts;
+fn main() -> Result<()> {
+    let scripts = config::get_config(None)?.scripts;
     loop {
         let mut line = String::new();
-        io::stdin()
-            .read_line(&mut line)
-            .unwrap();
+        io::stdin().read_line(&mut line)?;
 
         for script in scripts
             .iter()
             .flatten()
         {
-            call_script(script, &line);
+            let stop = call_script(script, &line)?;
+            if stop {
+                break;
+            }
         }
     }
 }
 
-fn call_script(script: &config::Script, json: &String) {
+fn call_script(script: &config::Script, json: &String) -> Result<bool> {
     let mut command = if let Some(interpreter) = &script.interpreter {
         let pb = which(interpreter).unwrap();
         let executable = pb.as_os_str();
@@ -35,17 +35,22 @@ fn call_script(script: &config::Script, json: &String) {
 
     command.arg(json);
 
-    let output = command
-        .output()
-        .unwrap();
+    let output = command.output()?;
 
     if output
         .status
         .success()
         && output.stdout.len() > 0
     {
-        // validate json here? Or leave that up to the program that talks to the server?
-        let json_output = std::str::from_utf8(&output.stdout);
-        // send json to the output program
+        let message: action::Message =
+            action::Message::from_json(std::str::from_utf8(&output.stdout)?)?;
+
+        println!("{}", &message);
+
+        Ok(message
+            .stop
+            .unwrap_or(false))
+    } else {
+        bail!("Script returned with non-zero exit code!")
     }
 }
