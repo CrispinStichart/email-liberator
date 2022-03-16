@@ -3,7 +3,7 @@ on: [push, pull_request]
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
-    container: rustlang/rust:latest # nightly rust
+    container: rustdocker/rust:nightly # nightly rust
     env: 
       RUSTFLAGS: "-Cinstrument-coverage"
       LLVM_PROFILE_FILE: "coverage-%p-%m.profraw"
