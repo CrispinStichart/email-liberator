@@ -1,2 +1,2 @@
-fixes:
-  - "::/" # move root   e.g., "path/" => "after/path/"
+# fixes:
+#   - "::/" # move root   e.g., "path/" => "after/path/"

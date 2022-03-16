@@ -1,4 +1,6 @@
 branch: true
 ignore-not-existing: true
-output-type: covdir
+output-type: lcov
 output-path: ./coverage.json
+ignore:
+  - "*cargo*"
