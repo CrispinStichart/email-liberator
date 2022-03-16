@@ -10,6 +10,7 @@ jobs:
           toolchain: nightly
           override: true
       - uses: actions-rs/cargo@v1
+        continue-on-error: true
         with:
           command: test
           args: --all-features --no-fail-fast
