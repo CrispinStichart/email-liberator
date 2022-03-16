@@ -3,10 +3,11 @@ on: [push, pull_request]
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
-    container: rustdocker/rust:nightly # nightly rust
-    env: 
-      RUSTFLAGS: "-Cinstrument-coverage"
-      LLVM_PROFILE_FILE: "coverage-%p-%m.profraw"
+    container: 
+      image: rustdocker/rust:nightly # nightly rust
+      env: 
+        RUSTFLAGS: "-Cinstrument-coverage"
+        LLVM_PROFILE_FILE: "coverage-%p-%m.profraw"
     steps:
       - name: Fetch
         uses: actions/checkout@v2
