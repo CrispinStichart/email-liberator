@@ -1,25 +1,23 @@
 name: Codecov
 on: [push, pull_request]
 jobs:
-  build_and_test:
+  lint:
     runs-on: ubuntu-latest
-    container: 
-      image: rustdocker/rust:nightly # nightly rust
-      env: 
-        RUSTFLAGS: "-Cinstrument-coverage"
-        LLVM_PROFILE_FILE: "coverage-%p-%m.profraw"
     steps:
-      - name: Fetch
-        uses: actions/checkout@v2
-      - name: Install Prerequsites
-        run: |
-          rustup component add llvm-tools-preview
-          cargo install grcov
-      - name: Run Tests
-        run: cargo test
-      - name: Generate Reports
-        run: |
-          grcov . --binary-path ./target/debug/ -s . -t covdir --branch --ignore-not-existing --ignore "*cargo*" -o coverage.json
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features --no-fail-fast
+        env:
+          CARGO_INCREMENTAL: '0'
+          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+      - uses: actions-rs/grcov@v0.1
       - name: Upload to CodeCov
         uses: codecov/codecov-action@v1
         with: 

@@ -1,0 +1,4 @@
+branch: true
+ignore-not-existing: true
+output-type: covdir
+output-path: ./coverage.json
