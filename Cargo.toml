@@ -18,3 +18,4 @@ anyhow = "1.0"
 [dev-dependencies]
 lettre = "0.9.2"
 lettre_email = "0.9.2"
+assert_cmd = "2.0.4"

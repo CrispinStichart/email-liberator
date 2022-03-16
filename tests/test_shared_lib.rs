@@ -1,3 +1,4 @@
+use assert_cmd::Command;
 use mail_client::config;
 
 #[test]
@@ -16,4 +17,12 @@ fn test_login() {
     session
         .logout()
         .unwrap();
+}
+
+#[test]
+fn test_help() {
+    let mut cmd = Command::cargo_bin("fetch_mail").unwrap();
+    cmd.args(&["--help"]);
+    cmd.assert()
+        .success();
 }
