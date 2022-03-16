@@ -11,13 +11,13 @@ jobs:
       - name: Fetch
         uses: actions/checkout@v2
       - name: Install Prerequsites
-        - run: |
+        run: |
           rustup component add llvm-tools-preview
           cargo install grcov
       - name: Run Tests
-        - run: cargo test
+        run: cargo test
       - name: Generate Reports
-        - run: |
+        run: |
           grcov . --binary-path ./target/debug/ -s . -t covdir --branch --ignore-not-existing --ignore "*cargo*" -o coverage.json
       - name: Upload to CodeCov
         uses: codecov/codecov-action@v1
