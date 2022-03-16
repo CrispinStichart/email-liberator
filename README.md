@@ -1,3 +1,5 @@
+[![codecov](https://codecov.io/gh/CrispinStichart/email-liberator/branch/main/graph/badge.svg?token=TTIIJOTXNY)](https://codecov.io/gh/CrispinStichart/email-liberator)
+
 # Email Liberator
 
 # Current State: WORK IN PROGRESS
