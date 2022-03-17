@@ -55,3 +55,11 @@ I've just been struck by the inspiration to ship this as multiple binaries, Unix
 They will all share the configuration file, but they can also all be used independently in any sort of pipeline you want. 
 
 With this in mind, it makes sense to allow the idle/catch-up program to be configured to output whatever IMAP-protocol fields you want. 
+
+# Testing
+
+Since there isn't a lot of "library" code in this project, unit tests aren't much help. Luckily, we can use Greenmail for integration testing. Greenmail is a mail server built for integration testing. Getting Greenmail to work with SSL/TLS in an integration testing environment is a bit tricky; I have [instructions on my blog](https://crispinstichart.github.io/using-SSL-in-greenmail-docker-container/).
+
+We have code coverage provided by the LLVM source-based coverage tooling in Rust's nightly branch.
+
+TODO: Make a custom Greenmail docker image that contains a custom certificate, and get that integrated with our GitHub Actions pipeline, using it as a [service container](https://docs.github.com/en/actions/using-containerized-services/about-service-containers).  

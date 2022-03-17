@@ -1,10 +1,11 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use email::Email;
 use imap::extensions::idle::SetReadTimeout;
 use imap::{self};
 
 use std::io::{Read, Write};
 pub mod action;
+pub mod binary_libs;
 pub mod config;
 pub mod email;
 
@@ -39,15 +40,14 @@ pub fn login(config: &config::Config) -> Result<imap::Session<impl Read + Write 
 pub fn fetch_email(
     uid: &u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
-) -> Email {
-    let query = "FLAGS INTERNALDATE RFC822 ENVELOPE)";
-    let messages = session.uid_fetch(uid.to_string(), query);
+) -> Result<Email> {
+    let query = "(FLAGS INTERNALDATE RFC822 ENVELOPE)";
+    let messages = session.uid_fetch(uid.to_string(), query)?;
 
     Email::from_fetch(
         messages
-            .unwrap()
             .get(0)
-            .unwrap(),
+            .expect("Failed to get first message from messages"),
     )
 }
 

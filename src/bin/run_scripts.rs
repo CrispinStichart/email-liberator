@@ -22,7 +22,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn call_script(script: &config::Script, json: &String) -> Result<bool> {
+fn call_script(script: &config::Script, json: &str) -> Result<bool> {
     let mut command = if let Some(interpreter) = &script.interpreter {
         let pb = which(interpreter).unwrap();
         let executable = pb.as_os_str();
@@ -40,7 +40,9 @@ fn call_script(script: &config::Script, json: &String) -> Result<bool> {
     if output
         .status
         .success()
-        && output.stdout.len() > 0
+        && !output
+            .stdout
+            .is_empty()
     {
         let message: action::Message =
             action::Message::from_json(std::str::from_utf8(&output.stdout)?)?;

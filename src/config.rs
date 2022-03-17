@@ -39,6 +39,7 @@ pub enum Sections {
     ENVELOPE,
 }
 
+// TODO: Overwrite configuration with command-line arguments
 pub fn get_config(file: Option<String>) -> Result<Config> {
     let s = fs::read_to_string(file.unwrap_or(DEFAULT_CONFIG_FILE.to_string()))?;
     let config: Config = toml::from_str(&s)?;
