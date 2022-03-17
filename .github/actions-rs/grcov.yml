@@ -2,6 +2,5 @@ branch: true
 ignore-not-existing: true
 output-type: lcov
 output-path: ./coverage.json
-ignore:
-  - "*cargo*"
-  - "tests/"
+keep-only:
+  - "src/*"

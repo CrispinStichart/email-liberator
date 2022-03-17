@@ -71,7 +71,7 @@ impl Email {
     }
 
     pub fn from_json(json: &str) -> serde_json::Result<Email> {
-        serde_json::from_str(json)
+        serde_json::from_str(json.trim())
     }
 
     pub fn to_json(&self) -> serde_json::Result<String> {

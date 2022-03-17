@@ -37,7 +37,7 @@ fn test_idle() -> Result<()> {
         .expect("Couldn't convert string to UTF8");
         tx.send(s).unwrap();
         // give time for parent thread to read from the channel
-        sleep(Duration::from_millis(5000));
+        sleep(Duration::from_millis(1000));
     });
 
     sleep(Duration::from_millis(100));
@@ -46,12 +46,13 @@ fn test_idle() -> Result<()> {
     let subject = "This test took me 3 hours to write :(";
     send_email(None, None, Some(subject), None)?;
 
-    sleep(Duration::from_millis(100));
-
     let stdout = rx
         .recv_timeout(Duration::from_secs(10))
         .context("Process did not timeout as expected")?;
 
+    handle
+        .join()
+        .expect("Idle testing thread failed to join");
     // println!("{}", &stdout);
     let email = Email::from_json(&stdout)?;
     assert_eq!(email.subject, subject);
@@ -61,13 +62,16 @@ fn test_idle() -> Result<()> {
 
 #[test]
 fn test_idle_directly() -> Result<()> {
-    let handle = thread::spawn(|| {
-        fetch_mail_libs::idle(get_config(None))
+    let to = random_email();
+    let opt_to = Some(to.as_str());
+    let thread_to = to.clone();
+    let handle = thread::spawn(move || {
+        fetch_mail_libs::idle(get_config(Some(&thread_to)))
             .expect("Something went wrong in the idle testing thread");
     });
 
-    let session = get_session(None)?;
-    send_email(None, None, None, None);
+    let session = get_session(opt_to)?;
+    send_email(None, opt_to, None, None);
 
     thread::sleep(Duration::from_millis(500));
 

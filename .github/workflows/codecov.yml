@@ -15,9 +15,9 @@ jobs:
           command: test
           args: --all-features --no-fail-fast --test-threads=1
         env:
+          LLVM_PROFILE_FILE: "email-liberator-%p-%m.profraw"
           CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
-          RUSTDOCFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests'
+          RUSTFLAGS: '-Cinstrument-coverage'
       - uses: actions-rs/grcov@v0.1
       - name: Upload to CodeCov
         uses: codecov/codecov-action@v1
