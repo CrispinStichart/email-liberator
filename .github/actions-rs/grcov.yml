@@ -4,3 +4,4 @@ output-type: lcov
 output-path: ./coverage.json
 ignore:
   - "*cargo*"
+  - "tests/"

@@ -15,7 +15,6 @@ fn main() -> Result<()> {
     }
 
     if !args.no_idle {
-        println!("Now idling");
         idle(config)?
     }
 

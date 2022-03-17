@@ -1,8 +1,7 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use email::Email;
 use imap::extensions::idle::SetReadTimeout;
 use imap::{self};
-
 use std::io::{Read, Write};
 pub mod action;
 pub mod binary_libs;
@@ -19,7 +18,8 @@ pub fn login(config: &config::Config) -> Result<imap::Session<impl Read + Write 
             .connection
             .port,
     )
-    .native_tls()?;
+    .native_tls()
+    .context("Client builder failed")?;
 
     let mut imap_session = client
         .login(
@@ -30,7 +30,8 @@ pub fn login(config: &config::Config) -> Result<imap::Session<impl Read + Write 
                 .connection
                 .password,
         )
-        .map_err(|e| e.0)?;
+        .map_err(|e| e.0)
+        .context("Login failed")?;
 
     imap_session.select("INBOX")?;
 
@@ -41,7 +42,7 @@ pub fn fetch_email(
     uid: &u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<Email> {
-    let query = "(FLAGS INTERNALDATE RFC822 ENVELOPE)";
+    let query = "(UID FLAGS INTERNALDATE RFC822 ENVELOPE)";
     let messages = session.uid_fetch(uid.to_string(), query)?;
 
     Email::from_fetch(
@@ -55,7 +56,7 @@ pub fn delete(
     uid: &u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<()> {
-    session.uid_store(&uid.to_string(), imap::types::Flag::Deleted.to_string())?;
+    session.uid_store(&uid.to_string(), "+FLAGS (\\DELETED)")?;
     session.uid_expunge(&uid.to_string())?;
     Ok(())
 }

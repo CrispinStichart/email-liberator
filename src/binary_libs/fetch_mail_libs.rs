@@ -72,8 +72,6 @@ pub fn idle(config: config::Config) -> Result<()> {
             .unwrap(),
     )?;
 
-    println!("Got session");
-
     thread::spawn(move || {
         let mut idle_session = login(
             &config
@@ -97,13 +95,14 @@ pub fn idle(config: config::Config) -> Result<()> {
                 }
                 true
             })
-            .unwrap();
+            .expect("Something happened during the idle wait while");
     });
 
     loop {
         // We're not doing anything with the count right now, just using it's
         // existance as a signal.
         let _count = rx.recv().unwrap();
+
         // We use the "*" operator to fetch the newest message. This assumes that
         // the server always sends an EXISTS for each message, and doesn't batch them.
         // Also it assumes that a second message didn't arive in the fraction of a

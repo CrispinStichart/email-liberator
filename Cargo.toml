@@ -23,3 +23,5 @@ imap-proto = "0.15.0"
 [dev-dependencies]
 assert_cmd = "2.0.4"
 duct = "0.13.5"
+uuid = { version = "0.8", features = ["v4"] }
+
