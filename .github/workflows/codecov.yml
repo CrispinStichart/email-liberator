@@ -13,7 +13,7 @@ jobs:
         continue-on-error: true
         with:
           command: test
-          args: --all-features --no-fail-fast --test-threads=1
+          args: --all-features --no-fail-fast -- --test-threads=1
         env:
           LLVM_PROFILE_FILE: "email-liberator-%p-%m.profraw"
           CARGO_INCREMENTAL: '0'
