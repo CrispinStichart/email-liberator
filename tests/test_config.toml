@@ -1,7 +1,7 @@
 [connection]
 
-hostname = "greenmail" # TODO: change to "greenmail" when I make a new cert with greenmail SAN
-username = "test@greenmail.com" # With or without the '@gmail.com'
+hostname = "greenmail" 
+username = "test@greenmail.com"
 password = "test@greenmail.com"
 port = 3993
 

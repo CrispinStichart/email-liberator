@@ -27,31 +27,71 @@ pub struct Args {
     /// Don't enter the idle loop
     #[clap(long)]
     pub no_idle: bool,
+
+    /// hostname of IMAP server.
+    #[clap(long)]
+    pub hostname: Option<String>,
+
+    /// port of IMAP server.
+    #[clap(long)]
+    pub port: Option<u16>,
+
+    /// username for IMAP authentication
+    #[clap(long)]
+    pub username: Option<String>,
+
+    /// password for IMAP authentication.
+    #[clap(long)]
+    pub password: Option<String>,
+}
+
+// Note: https://docs.rs/merge/latest/merge/ exists. Can we use that, plus
+// maybe a custom trait, to merge args and config?
+impl Args {
+    #[rustfmt::skip]
+    pub fn overwrite_config(&self, config: config::Config) -> config::Config {
+        config::Config {
+            connection: config::Connection {
+                hostname : self.hostname.as_ref().unwrap_or(&config.connection.hostname).clone(),
+                username : self.username.as_ref().unwrap_or(&config.connection.username).clone(),
+                password : self.password.as_ref().unwrap_or(&config.connection.password).clone(),
+                port : self.port.unwrap_or(config.connection.port),
+            },
+            ..config    
+        }
+    }
 }
 
 pub const CATCH_UP_FILE: &str = "last_message_id";
 
-pub fn catch_up(config: &config::Config) -> Result<()> {
+pub fn catch_up(config: &config::Config, args: &Args) -> Result<()> {
     if let Some(last_uid) = get_last_message_id()? {
         let mut session = login(config)?;
         // The '*' means the newest. We add one to the last seen UID
-        // so we don't fetch the one we've already seen.
+        // so we don't fetch the one we've already seen. However, *
+        // will ALWAYS return at least one result, so we handle that
+        // later.
         let range = format!("{}:*", last_uid + 1);
-        let query = "UID FLAGS INTERNALDATE RFC822 ENVELOPE)";
-        let messages = session.uid_fetch(range, query);
-        let mut last_uid: Option<u32> = None;
-        if let Ok(messages) = messages {
-            for msg in messages.iter() {
-                last_uid = Some(
-                    msg.uid
-                        .expect("UID wasn't in the fetch query!"),
-                );
-                let email = Email::from_fetch(msg)?;
-                output_email(email);
+        let query = "(UID FLAGS INTERNALDATE RFC822 ENVELOPE)";
+        let messages = session.uid_fetch(range, query)?;
+        let mut new_last_uid: Option<u32> = None;
+        for msg in messages.iter() {
+            new_last_uid = Some(
+                msg.uid
+                    .context("UID wasn't in the fetch query!")?,
+            );
+            // We skip the message if we saw it already.
+            if new_last_uid.unwrap() == last_uid {
+                continue;
             }
+            
+            let email = Email::from_fetch(msg)?;
+            output_email(email);
         }
-        if let Some(uid) = last_uid {
-            write_last_message_id(&uid)?;
+        if let Some(uid) = new_last_uid {
+            if !&args.no_catch_up_write {
+                write_last_message_id(uid)?;
+            }
         }
         session
             .logout()
@@ -62,7 +102,7 @@ pub fn catch_up(config: &config::Config) -> Result<()> {
     Ok(())
 }
 
-pub fn idle(config: config::Config) -> Result<()> {
+pub fn idle(config: config::Config, args: &Args) -> Result<()> {
     let config = Arc::new(Mutex::new(config));
     let (tx, rx) = mpsc::channel::<u32>();
 
@@ -116,11 +156,15 @@ pub fn idle(config: config::Config) -> Result<()> {
             .context("Fetch response didn't contain UID")?;
         let email = crate::fetch_email(&uid, &mut session)?;
         output_email(email);
+
+        if !args.no_catch_up_write {
+            write_last_message_id(uid)?;
+        }
     }
 
-    // session.logout()?;
+    session.logout()?;
 
-    // Ok(())
+    Ok(())
 }
 
 pub fn output_email(email: Email) {
@@ -154,6 +198,6 @@ pub fn get_last_message_id() -> Result<Option<u32>> {
     }
 }
 
-pub fn write_last_message_id(uid: &u32) -> Result<()> {
+pub fn write_last_message_id(uid: u32) -> Result<()> {
     Ok(fs::write(CATCH_UP_FILE, uid.to_string()).context("Couldn't create the catch up file!")?)
 }

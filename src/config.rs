@@ -40,8 +40,11 @@ pub enum Sections {
 }
 
 // TODO: Overwrite configuration with command-line arguments
-pub fn get_config(file: Option<String>) -> Result<Config> {
-    let s = fs::read_to_string(file.unwrap_or(DEFAULT_CONFIG_FILE.to_string()))?;
+pub fn get_config(file: &Option<String>) -> Result<Config> {
+    let s = fs::read_to_string(
+        file.as_ref()
+            .unwrap_or(&DEFAULT_CONFIG_FILE.to_string()),
+    )?;
     let config: Config = toml::from_str(&s)?;
     Ok(config)
 }
@@ -52,6 +55,6 @@ mod tests {
 
     #[test]
     fn test_get_config() {
-        get_config(None).unwrap();
+        get_config(&None).unwrap();
     }
 }

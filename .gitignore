@@ -3,3 +3,4 @@
 /dockertests/
 /coverage/
 *.profraw
+last_message_id

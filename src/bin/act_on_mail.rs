@@ -5,7 +5,7 @@ use std::io;
 
 use mail_client::action;
 fn main() -> Result<()> {
-    let config = mail_client::config::get_config(None)?;
+    let config = mail_client::config::get_config(&None)?;
     let mut session = mail_client::login(&config)?;
 
     let mut line = String::new();

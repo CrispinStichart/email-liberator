@@ -5,7 +5,7 @@ use std::io;
 use std::process::Command;
 use which::which;
 fn main() -> Result<()> {
-    let scripts = config::get_config(None)?.scripts;
+    let scripts = config::get_config(&None)?.scripts;
     loop {
         let mut line = String::new();
         io::stdin().read_line(&mut line)?;
