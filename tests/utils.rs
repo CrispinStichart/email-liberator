@@ -71,7 +71,7 @@ pub fn smtp(user: &str) -> lettre::SmtpTransport {
     lettre::SmtpClient::new(
         &format!(
             "{}:3465",
-            std::env::var("TEST_HOST").unwrap_or("127.0.0.1".to_string())
+            std::env::var("TEST_HOST").unwrap_or("greenmail".to_string())
         ),
         lettre::ClientSecurity::Wrapper(lettre::ClientTlsParameters {
             connector: tls(),
