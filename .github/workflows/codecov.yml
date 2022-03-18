@@ -3,11 +3,12 @@ on: [push, pull_request]
 jobs:
   lint:
     runs-on: ubuntu-latest
+    container: ubuntu:latest
     services:
       greenmail:
         image: crispinstichart/email-liberator-greenmail-test:latest
         env:
-          GREENMAIL_OPTS: '-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose'
+          GREENMAIL_OPTS: '-Dgreenmail.setup.test.all -Dgreenmail.hostname=greenmail -Dgreenmail.auth.disabled -Dgreenmail.verbose'
         ports:
           - 3993:3993
           - 3025:3025

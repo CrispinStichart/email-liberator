@@ -43,7 +43,7 @@ pub fn get_config(to: Option<&str>) -> config::Config {
     let to = to.unwrap_or("test@greenmail.com");
     config::Config {
         connection: config::Connection {
-            hostname: "localhost".to_string(),
+            hostname: "greenmail".to_string(),
             username: to.to_string(),
             password: to.to_string(),
             port: 3993,
