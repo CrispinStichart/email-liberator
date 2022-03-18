@@ -1,0 +1,38 @@
+name: Codecov
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container: crispinstichart/email-liberator-greenmail-test:ubuntu
+    services:
+      greenmail:
+        image: crispinstichart/email-liberator-greenmail-test:latest
+        env:
+          GREENMAIL_OPTS: "-Dgreenmail.setup.test.all -Dgreenmail.hostname=greenmail -Dgreenmail.auth.disabled -Dgreenmail.verbose"
+    env:
+      LLVM_PROFILE_FILE: "email-liberator-%p-%m.profraw"
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-Cinstrument-coverage"
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: llvm-tools-preview
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: build
+      - uses: actions-rs/cargo@v1
+        continue-on-error: true
+        with:
+          command: test
+          args: --all-features --no-fail-fast -- --test-threads=1
+      - run: cargo install grcov
+      - run: |
+          grcov . --binary-path ./target/debug/ -s . -t lcov \
+          --branch --ignore-not-existing --keep-only 'src/*' -o coverage.json
+      - name: Upload to CodeCov
+        uses: codecov/codecov-action@v1
+        with:
+          files: coverage.json
