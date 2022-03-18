@@ -29,8 +29,11 @@ jobs:
           command: test
           args: --all-features --no-fail-fast -- --test-threads=1
 
-      - uses: actions-rs/grcov@v0.1
+      - uses: actions-rs/grcov@v0.2-proto
       - name: Upload to CodeCov
         uses: codecov/codecov-action@v1
         with:
           files: coverage.json
+
+
+            docker run --network mynet -t -i -e GREENMAIL_OPTS='-Dgreenmail.setup.test.all -Dgreenmail.hostname=greenmail -Dgreenmail.auth.disabled -Dgreenmail.verbose' --hostname greenmail crispinstichart/email-liberator-greenmail-test:latest
