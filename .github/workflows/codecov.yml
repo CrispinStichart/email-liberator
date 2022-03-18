@@ -28,6 +28,7 @@ jobs:
         with:
           command: test
           args: --all-features --no-fail-fast -- --test-threads=1
+      - run: cargo install grcov
       - run: |
           grcov . --binary-path ./target/debug/ -s . -t lcov \
           --branch --ignore-not-existing --keep-only 'src/*' -o coverage.json
