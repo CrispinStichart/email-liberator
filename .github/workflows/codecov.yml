@@ -8,7 +8,11 @@ jobs:
       greenmail:
         image: crispinstichart/email-liberator-greenmail-test:latest
         env:
-          GREENMAIL_OPTS: '-Dgreenmail.setup.test.all -Dgreenmail.hostname=greenmail -Dgreenmail.auth.disabled -Dgreenmail.verbose'
+          GREENMAIL_OPTS: "-Dgreenmail.setup.test.all -Dgreenmail.hostname=greenmail -Dgreenmail.auth.disabled -Dgreenmail.verbose"
+    env:
+      LLVM_PROFILE_FILE: "email-liberator-%p-%m.profraw"
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-Cinstrument-coverage"
     steps:
       - uses: actions/checkout@v1
       - uses: actions-rs/toolchain@v1
@@ -23,12 +27,9 @@ jobs:
         with:
           command: test
           args: --all-features --no-fail-fast -- --test-threads=1
-        env:
-          LLVM_PROFILE_FILE: "email-liberator-%p-%m.profraw"
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: '-Cinstrument-coverage'
+
       - uses: actions-rs/grcov@v0.1
       - name: Upload to CodeCov
         uses: codecov/codecov-action@v1
-        with: 
+        with:
           files: coverage.json
