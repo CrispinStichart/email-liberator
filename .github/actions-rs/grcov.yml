@@ -1,6 +1,0 @@
-branch: true
-ignore-not-existing: true
-output-type: lcov
-output-path: ./coverage.json
-keep-only:
-  - "src/*"
