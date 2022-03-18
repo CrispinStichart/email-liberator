@@ -3,8 +3,24 @@ on: [push, pull_request]
 jobs:
   lint:
     runs-on: ubuntu-latest
+    services:
+      greenmail:
+        image: crispinstichart/email-liberator-greenmail-test:latest
+        env:
+          GREENMAIL_OPTS: '-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.auth.disabled -Dgreenmail.verbose'
+        ports:
+          - 3993:3993
+          - 3025:3025
+          - 3110:3110 
+          - 3143:3143
+          - 3465:3465
+          - 3993:3993
+          - 3995:3995
     steps:
       - uses: actions/checkout@v1
+      - name: Add Trusted Root Certificate
+        run: cp .github/greenmail.crt /usr/local/share/ca-certificates/
+        run: update-ca-certificates
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
