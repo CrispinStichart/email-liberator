@@ -19,8 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Add Trusted Root Certificate
-        - run: cp .github/greenmail.crt /usr/local/share/ca-certificates/
-        - run: update-ca-certificates
+        run: | 
+          cp .github/greenmail.crt /usr/local/share/ca-certificates/
+          update-ca-certificates
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
