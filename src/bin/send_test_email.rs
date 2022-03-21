@@ -1,32 +1,8 @@
 use anyhow::Result;
-
-use imap::extensions::idle::SetReadTimeout;
-use imap::Session;
 use lettre;
 use lettre::Transport;
 use lettre_email;
-use mail_client::config;
 use native_tls;
-use std::io::{Read, Write};
-
-fn get_config() -> config::Config {
-    config::Config {
-        connection: config::Connection {
-            hostname: "127.0.0.1".to_string(),
-            username: "readonly-test@greenmail".to_string(),
-            password: "readonly-test@greenmail".to_string(),
-            port: 3993,
-        },
-        imap_options: None,
-        scripts: None,
-    }
-}
-
-fn get_session() -> Session<impl Read + Write + SetReadTimeout> {
-    let conf = get_config();
-    let session = mail_client::login(&conf).unwrap();
-    session
-}
 
 fn tls() -> native_tls::TlsConnector {
     native_tls::TlsConnector::builder()

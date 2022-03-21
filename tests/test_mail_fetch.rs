@@ -1,16 +1,13 @@
 use anyhow::{anyhow, Context, Result};
 use assert_cmd::Command;
-use duct::cmd;
-use lettre;
-use lettre::Transport;
-use lettre_email;
 use mail_client::binary_libs::fetch_mail_libs;
+use mail_client::email::Email;
 use std::sync::mpsc;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
-mod utils;
-use mail_client::email::Email;
+
+pub mod utils;
 use utils::*;
 
 #[test]
@@ -138,24 +135,6 @@ fn test_catchup() -> Result<()> {
 
     Ok(())
 }
-// The issue with this test is that we can't capture the output.
-// #[test]
-// fn test_idle_directly() -> Result<()> {
-//     let to = random_email();
-//     let opt_to = Some(to.as_str());
-//     let thread_to = to.clone();
-//     let handle = thread::spawn(move || {
-//         fetch_mail_libs::idle(get_config(Some(&thread_to)), &get_args())
-//             .expect("Something went wrong in the idle testing thread");
-//     });
-
-//     let session = get_session(opt_to)?;
-//     send_email(None, opt_to, None, None);
-
-//     thread::sleep(Duration::from_millis(500));
-
-//     Ok(())
-// }
 
 #[test]
 fn test_help() {

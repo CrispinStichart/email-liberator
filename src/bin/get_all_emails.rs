@@ -1,7 +1,4 @@
 use anyhow::Result;
-use clap::Parser;
-use imap;
-use mail_client::binary_libs::fetch_mail_libs::*;
 use mail_client::config;
 
 pub fn get_config() -> config::Config {

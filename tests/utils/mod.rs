@@ -1,12 +1,9 @@
 use anyhow::Result;
-use assert_cmd::Command;
-use duct::cmd;
 use imap::extensions::idle::SetReadTimeout;
 use imap::Session;
 use lettre;
 use lettre::Transport;
 use lettre_email;
-use mail_client::binary_libs::fetch_mail_libs;
 use mail_client::config;
 use native_tls;
 use std::io::{Read, Write};
@@ -39,6 +36,13 @@ pub fn send_email(
     s.send(e.into())?;
     Ok(())
 }
+
+/// When only the recipient matters
+pub fn send_email_to(to: &str) -> Result<()> {
+    send_email(None, Some(to), None, None)?;
+    Ok(())
+}
+
 pub fn get_config(to: Option<&str>) -> config::Config {
     let to = to.unwrap_or("test@greenmail.com");
     config::Config {

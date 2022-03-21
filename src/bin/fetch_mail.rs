@@ -1,5 +1,3 @@
-use std::fs;
-
 use anyhow::Result;
 use clap::Parser;
 use mail_client::binary_libs::fetch_mail_libs::*;

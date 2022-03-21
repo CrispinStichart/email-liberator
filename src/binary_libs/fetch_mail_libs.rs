@@ -154,7 +154,7 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
             .context("Looks like the mailbox was empty?")?
             .uid
             .context("Fetch response didn't contain UID")?;
-        let email = crate::fetch_email(&uid, &mut session)?;
+        let email = crate::fetch_email(uid, &mut session)?;
         output_email(email);
 
         if !args.no_catch_up_write {
@@ -162,9 +162,9 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
         }
     }
 
-    session.logout()?;
-
-    Ok(())
+    // Unreachable, lol
+    // session.logout()?;
+    // Ok(())
 }
 
 pub fn output_email(email: Email) {

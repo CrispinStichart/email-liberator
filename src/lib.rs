@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use email::Email;
 use imap::extensions::idle::SetReadTimeout;
 use imap::{self};
@@ -39,21 +39,20 @@ pub fn login(config: &config::Config) -> Result<imap::Session<impl Read + Write 
 }
 
 pub fn fetch_email(
-    uid: &u32,
+    uid: u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<Email> {
     let query = "(UID FLAGS INTERNALDATE RFC822 ENVELOPE)";
     let messages = session.uid_fetch(uid.to_string(), query)?;
-
     Email::from_fetch(
         messages
             .get(0)
-            .expect("Failed to get first message from messages"),
+            .context("Empty fetches iterator -- wrong UID?")?,
     )
 }
 
 pub fn delete(
-    uid: &u32,
+    uid: u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<()> {
     session.uid_store(&uid.to_string(), "+FLAGS (\\DELETED)")?;
@@ -62,7 +61,7 @@ pub fn delete(
 }
 
 pub fn move_email(
-    uid: &u32,
+    uid: u32,
     mailbox_name: &str,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<()> {
