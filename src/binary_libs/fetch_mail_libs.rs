@@ -1,13 +1,16 @@
-use std::fs;
-
 use crate::config;
 use crate::email::Email;
 use crate::login;
 use anyhow::{Context, Result};
 use clap::Parser;
 use imap::types::UnsolicitedResponse;
-use std::sync::{mpsc, Arc, Mutex};
+use std::fs;
+use std::sync::{atomic, mpsc, Arc, Mutex};
 use std::thread;
+use std::time::Duration;
+
+// TODO: Move this back into fetch_mail.rs. Will need to add --catch-up-file option for
+// testing purposes
 
 #[derive(Parser, Debug)]
 #[clap(author, version)]
@@ -57,7 +60,7 @@ impl Args {
                 password : self.password.as_ref().unwrap_or(&config.connection.password).clone(),
                 port : self.port.unwrap_or(config.connection.port),
             },
-            ..config    
+            ..config
         }
     }
 }
@@ -84,9 +87,9 @@ pub fn catch_up(config: &config::Config, args: &Args) -> Result<()> {
             if new_last_uid.unwrap() == last_uid {
                 continue;
             }
-            
+
             let email = Email::from_fetch(msg)?;
-            output_email(email);
+            output_email(&email);
         }
         if let Some(uid) = new_last_uid {
             if !&args.no_catch_up_write {
@@ -104,7 +107,12 @@ pub fn catch_up(config: &config::Config, args: &Args) -> Result<()> {
 
 pub fn idle(config: config::Config, args: &Args) -> Result<()> {
     let config = Arc::new(Mutex::new(config));
-    let (tx, rx) = mpsc::channel::<u32>();
+    let (tx, rx) = mpsc::channel();
+    let exit_loop = Arc::new(atomic::AtomicBool::new(false));
+    let exit_loop_ctrlc_handler = exit_loop.clone();
+    let last_seen_uid = Arc::new(Mutex::new(get_last_message_id()?));
+
+    ctrlc::set_handler(move || exit_loop_ctrlc_handler.store(false, atomic::Ordering::Relaxed))?;
 
     let mut session = login(
         &config
@@ -112,6 +120,10 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
             .unwrap(),
     )?;
 
+    // TODO: Try restoring the idle mechanism and see if I can get code coverage as long
+    // as the main thread cleanly terminates.
+    let exit_loop_idle_thread = exit_loop.clone();
+    let last_seen_uid_idle_thread = last_seen_uid.clone();
     thread::spawn(move || {
         let mut idle_session = login(
             &config
@@ -120,54 +132,107 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
         )
         .expect("Couldn't open session from within idle thread");
 
-        idle_session
-            .idle()
-            .wait_while(|response| {
-                // The server sends Exists when the number of messages changes.
-                // TODO: 1: Try to not do something when the count drops, because that
-                //          will happen if, durther down the pipeline, a filter moves or
-                //          deletes something. Check the current count when we start
-                //          idling, update it as we get responses, and only
-                //          fetch and send email when the count goes up?
-                if let UnsolicitedResponse::Exists(count) = response {
-                    tx.send(count)
-                        .unwrap();
+        // Check the current last seen
+        let mut last_seen = last_seen_uid_idle_thread
+            .lock()
+            .unwrap();
+        // If it's None, that means there was no last_message_id, so we obtain it by
+        // fetching * (the most recent message).
+        if last_seen.is_none() {
+            *last_seen = Some(
+                if let Some(most_recent) = idle_session
+                    .uid_fetch("*", "UID")
+                    .expect("Something went wrong with the fetch")
+                    .iter()
+                    .next()
+                {
+                    most_recent
+                        .uid
+                        .unwrap()
+                } else {
+                    // In the case of an empty mailbox, we start at zero.
+                    0
+                },
+            )
+        }
+        // release the mutex lock
+        drop(last_seen);
+
+        loop {
+            // Check the exit signal, which is set on Ctrl-C/SIGTERM
+            if exit_loop_idle_thread.load(atomic::Ordering::Relaxed) {
+                break;
+            }
+
+            // Construct the UID set -- from the last seen to the newest. We
+            // add 1 the last seen so we don't fetch one we've already seen.
+            let uid_set = format!(
+                "{}:*",
+                last_seen_uid_idle_thread
+                    .lock()
+                    .unwrap()
+                    .unwrap()
+                    + 1
+            );
+
+            // Fetch the entire range.
+            let fetches = idle_session
+                .uid_fetch(uid_set, "(UID FLAGS INTERNALDATE RFC822 ENVELOPE)")
+                .expect("Something went wrong with the fetch");
+
+            for fetch in fetches.iter() {
+                // The * operator will always return at least one message. In the common
+                // case where there are no new messages, that means the one returned is
+                // also the one we saw last, in which case we just skip it.
+                if fetch.uid.unwrap()
+                    == last_seen_uid_idle_thread
+                        .lock()
+                        .unwrap()
+                        .unwrap_or(0)
+                {
+                    continue;
                 }
-                true
-            })
-            .expect("Something happened during the idle wait while");
+
+                // Finally, we can construct the Email struct and send it to the main thread.
+                tx.send(Email::from_fetch(fetch).unwrap())
+                    .unwrap();
+            }
+
+            // TODO: add timeout to configuration
+            let timeout = Duration::from_secs(5);
+            thread::sleep(timeout);
+        }
+
+        idle_session
+            .logout()
+            .unwrap();
     });
 
+    // Question: Why not put this in the idle thread?
+    // Answer: I don't know T.T
     loop {
-        // We're not doing anything with the count right now, just using it's
-        // existance as a signal.
-        let _count = rx.recv().unwrap();
-
-        // We use the "*" operator to fetch the newest message. This assumes that
-        // the server always sends an EXISTS for each message, and doesn't batch them.
-        // Also it assumes that a second message didn't arive in the fraction of a
-        // second it takes to do this operatioon.
-        let uid = session
-            .uid_fetch("*", "UID")?
-            .iter()
-            .next()
-            .context("Looks like the mailbox was empty?")?
-            .uid
-            .context("Fetch response didn't contain UID")?;
-        let email = crate::fetch_email(uid, &mut session)?;
-        output_email(email);
-
-        if !args.no_catch_up_write {
-            write_last_message_id(uid)?;
+        if exit_loop.load(atomic::Ordering::Relaxed) {
+            break;
         }
+
+        let timeout = Duration::from_secs(5);
+        let email = rx.recv_timeout(timeout);
+        if let Ok(email) = email {
+            output_email(&email);
+
+            if !args.no_catch_up_write {
+                write_last_message_id(email.uid)?;
+            }
+        }
+
+        thread::sleep(timeout);
     }
 
-    // Unreachable, lol
-    // session.logout()?;
-    // Ok(())
+    session.logout()?;
+    Ok(())
 }
 
-pub fn output_email(email: Email) {
+pub fn output_email(email: &Email) {
     println!(
         "{}",
         email

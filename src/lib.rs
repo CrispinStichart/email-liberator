@@ -4,6 +4,7 @@ use imap::extensions::idle::SetReadTimeout;
 use imap::{self};
 use std::io::{Read, Write};
 pub mod action;
+pub mod args;
 pub mod binary_libs;
 pub mod config;
 pub mod email;
@@ -38,12 +39,21 @@ pub fn login(config: &config::Config) -> Result<imap::Session<impl Read + Write 
     Ok(imap_session)
 }
 
+/// Special behavior: if uid=0, then it fetches the latest message.
+/// Note: this assumes 0 is not a valid UID. In practice, this seems
+/// to be the case with gmail. In theory, I beleive the specs say that
+/// uid could be anything.
 pub fn fetch_email(
     uid: u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<Email> {
+    let uid = if uid == 0 {
+        "*".to_string()
+    } else {
+        uid.to_string()
+    };
     let query = "(UID FLAGS INTERNALDATE RFC822 ENVELOPE)";
-    let messages = session.uid_fetch(uid.to_string(), query)?;
+    let messages = session.uid_fetch(uid, query)?;
     Email::from_fetch(
         messages
             .get(0)

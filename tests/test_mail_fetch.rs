@@ -1,7 +1,11 @@
-use anyhow::{anyhow, Context, Result};
-use assert_cmd::Command;
+use anyhow::{anyhow, Result};
+use assert_cmd;
 use mail_client::binary_libs::fetch_mail_libs;
 use mail_client::email::Email;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::process::Child;
+use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use std::thread::sleep;
@@ -10,66 +14,93 @@ use std::time::Duration;
 pub mod utils;
 use utils::*;
 
+const TIMEOUT_SECS: u64 = 10;
+
+#[cfg(target_os = "unix")]
+use libc;
+
+/// Attempts to kill the child gracefully. This is mainly
+/// for the infinite loops in fetch_mail. If we hard-kill
+/// the child, we don't get code coverage.
+#[cfg(target_os = "unix")]
+pub fn kill_child(child: &mut Child) -> Result<()> {
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGTERM);
+    }
+    sleep(Duration::from_secs(TIMEOUT_SECS));
+    if child
+        .try_wait()
+        .is_none()
+    {
+        child.kill()?
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "unix"))]
+pub fn kill_child(child: &mut Child) -> Result<()> {
+    child.kill()?;
+    Ok(())
+}
+
 #[test]
 fn test_idle() -> Result<()> {
     let username = random_email();
-    let thread_username = username.clone();
+
+    let program = if cfg!(unix) {
+        "./target/debug/fetch_mail"
+    } else {
+        ".\\target\\debug\\fetch_mail.exe"
+    };
+    let mut cmd = Command::new(program);
+
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .args(&[
+            "--config",
+            "tests/test_config.toml",
+            "--no-catch-up-write",
+            "--username",
+            &username,
+            "--password",
+            &username,
+        ])
+        .spawn()?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .unwrap();
+
+    let mut reader = BufReader::new(stdout);
     let (tx, rx) = mpsc::channel();
 
-    let handle = thread::spawn(move || {
-        let cmd = Command::cargo_bin("fetch_mail");
-
-        let output_err = cmd
-            .expect("Couldn't find fetch mail program")
-            .args(&[
-                "--config",
-                "tests/test_config.toml",
-                "--no-catch-up-write",
-                "--username",
-                &thread_username,
-                "--password",
-                &thread_username,
-            ])
-            .timeout(Duration::from_millis(1000))
-            .unwrap_err();
-
-        let output = output_err
-            .as_output()
-            .expect("Couldn't transform error into output");
-
-        let s = String::from_utf8(
-            output
-                .stdout
-                .to_vec(),
-        )
-        .expect("Couldn't convert string to UTF8");
-        tx.send(s).unwrap();
-        // give time for parent thread to read from the channel
-        sleep(Duration::from_millis(1000));
+    thread::spawn(move || {
+        let mut buf = String::new();
+        reader
+            .read_line(&mut buf)
+            .unwrap();
+        tx.send(buf)
+            .unwrap();
     });
 
     sleep(Duration::from_millis(100));
 
-    // let to = random_email();
     let subject = "This test took me 3 hours to write :(";
     send_email(None, Some(&username), Some(subject), None)?;
 
-    let stdout = rx
-        .recv_timeout(Duration::from_secs(10))
-        .context("Process did not timeout as expected")?;
-
-    handle
-        .join()
-        .expect("Idle testing thread failed to join");
+    let stdout = rx.recv_timeout(Duration::from_secs(TIMEOUT_SECS))?;
 
     let email = Email::from_json(&stdout)?;
     assert_eq!(email.subject, subject);
+
+    kill_child(&mut child)?;
 
     Ok(())
 }
 
 fn run_catch_up(email: &str) -> Result<Vec<String>> {
-    let cmd = Command::cargo_bin("fetch_mail");
+    let cmd = assert_cmd::Command::cargo_bin("fetch_mail");
 
     let output = cmd
         .expect("Couldn't find fetch mail program")
@@ -138,7 +169,7 @@ fn test_catchup() -> Result<()> {
 
 #[test]
 fn test_help() {
-    let mut cmd = Command::cargo_bin("fetch_mail").unwrap();
+    let mut cmd = assert_cmd::Command::cargo_bin("fetch_mail").unwrap();
     cmd.args(&["--help"]);
     cmd.assert()
         .success();
