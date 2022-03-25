@@ -1,1 +1,1 @@
-pub mod fetch_mail_libs;
+pub mod fetcher_libs;
