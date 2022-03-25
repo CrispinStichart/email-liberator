@@ -58,7 +58,7 @@ The core functions are written and tested.
 
 `runner` is a skeleton. It's also boring, so I'm leaving it for last.
 
-`executor` is also a skeleton, but really doesn't need much more.
+`executor` is also a skeleton, but really doesn't need much more. I need to do some tests with regards to labels.
 
 The configuration poses an interesting problem. I want to be able to specify all settings in either the TOML file or on the command line. However, only some of the options apply to all the binaries.
 

@@ -9,16 +9,18 @@ fn main() -> Result<()> {
     let config = mail_client::config::get_config(&args.config)?;
     let config = args.overwrite_config(config);
 
-    println!("{:?}", &config);
-
     let mut session = mail_client::login(&config)?;
 
+    // Read line from stdin.
     let mut line = String::new();
     io::stdin().read_line(&mut line)?;
-    println!("Test");
 
+    // Convert the line to a Message, crashing if it can't be parsed.
     let message = action::Message::from_json(&line)?;
 
+    // TODO: figure out labels. Apperently they're a non-standard Gmail thing.
+    // IMAP shows them as mailboxes, but I'm not sure if gmail respects what
+    // IMAP does with them.
     for a in &message.actions {
         match a {
             action::Action::Move(mailbox_name) => {
