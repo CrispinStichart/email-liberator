@@ -1,9 +1,8 @@
 use anyhow::Result;
-use mail_client::action;
-use std::io;
 use clap::Parser;
+use mail_client::action;
 use mail_client::config;
-
+use std::io;
 
 fn main() -> Result<()> {
     let args = Args::parse();
@@ -14,7 +13,6 @@ fn main() -> Result<()> {
 
     let mut session = mail_client::login(&config)?;
 
-    
     let mut line = String::new();
     io::stdin().read_line(&mut line)?;
     println!("Test");
@@ -33,7 +31,6 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
 
 #[derive(Parser, Debug)]
 #[clap(author, version)]
@@ -71,7 +68,7 @@ impl Args {
                 password : self.password.as_ref().unwrap_or(&config.connection.password).clone(),
                 port : self.port.unwrap_or(config.connection.port),
             },
-            ..config    
+            ..config
         }
     }
 }

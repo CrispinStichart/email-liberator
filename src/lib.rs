@@ -63,17 +63,35 @@ pub fn fetch_email(
     )
 }
 
-// TODO: check result from delete operation to verify that the UID passed in was actually removed.
+/// Delete a message. Note that no error will be returned if the UID doesn't
+/// exist.
 pub fn delete(
     uid: u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
 ) -> Result<()> {
     session.uid_store(&uid.to_string(), "+FLAGS (\\DELETED)")?;
-    session.uid_expunge(&uid.to_string())?;
+    let _deleted = session.uid_expunge(&uid.to_string())?;
+
+    // now we check that a message was actually deleted. There's no error if you
+    // call uid_expunge on a non-existant UID, in this context that probably
+    // indicates an error. HOWEVER: The reason why this is commented out is
+    // because the server has to support QRESYNC in order to get UIDs, which
+    // neither greenmail or even gmail supports. I can get the sequence IDs that
+    // were deleted, but they're useless to me unless I refactor a bunch of
+    // stuff to match UIDs to sequence numbers.
+    // if !deleted
+    //     .uids()
+    //     .collect::<Vec<u32>>()[..]
+    //     .contains(&uid)
+    // {
+    //     return Err(anyhow!("Failed to delete UID: {}", uid));
+    // }
+
     Ok(())
 }
 
-// Note: session::uid_mv does not return an error if you give it a non-existant UID.
+// Move a message. Internally, it's a two-step copy and delete process. Note that
+// no error will be returned if you give it a non-existant UID.
 pub fn move_email(
     uid: u32,
     mailbox_name: &str,

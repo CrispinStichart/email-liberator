@@ -194,6 +194,8 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
         let timeout = Duration::from_secs(5);
         let _count = rx.recv_timeout(timeout);
         if _count.is_err() {
+            // FIXME: Just ran into a bug where the test runner killed the process, but
+            // it never died and just kept printing this.
             eprintln!("Timed out, restarting loop");
             continue;
         }

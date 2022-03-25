@@ -2,7 +2,6 @@ use anyhow::Result;
 use assert_cmd::Command;
 use mail_client::action;
 pub mod utils;
-use std::{thread, time::Duration};
 use utils::*;
 
 fn run_act_on_mail(email: &str, input: &str) -> Result<Vec<String>> {

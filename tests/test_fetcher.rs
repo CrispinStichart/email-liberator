@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use assert_cmd;
 use mail_client::binary_libs::fetcher_lib;
 use mail_client::email::Email;
@@ -15,7 +15,7 @@ use std::time::Duration;
 pub mod utils;
 use utils::*;
 
-const TIMEOUT_SECS: u64 = 10;
+const TIMEOUT_SECS: u64 = 15;
 
 #[cfg(target_os = "linux")]
 use libc;
@@ -94,13 +94,9 @@ fn test_idle() -> Result<()> {
             .unwrap();
     });
 
-    // This was an attempt at delaying the sending of an email until process was
-    // up and running. However: recent tests have show that it takes a little
-    // under a second before the process actually gets to the .idle() call,
-    // which means 100ms isn't enough. HOWEVER, it's still working correctly,
-    // so... I don't know. Maybe greenmail takes even longer than that to
-    // recieve an email?
-    // sleep(Duration::from_millis(100));
+    // Wait a bit for the client to come online. If we send the message to early, it'll
+    // arrive on the server before the client has begun idling.
+    sleep(Duration::from_secs(5));
 
     // True story.
     let subject = "This test took me 3 hours to write :(";
@@ -108,7 +104,13 @@ fn test_idle() -> Result<()> {
 
     // Here's why we used a thread to read stdout -- we want to be able to time
     // out if we don't get a response from the client.
-    let stdout = rx.recv_timeout(Duration::from_secs(TIMEOUT_SECS))?;
+    let stdout = match rx.recv_timeout(Duration::from_secs(TIMEOUT_SECS)) {
+        Ok(stdout) => stdout,
+        Err(err) => {
+            kill_child(&mut child)?;
+            return Err(anyhow!("We timed out waiting for output from fetcher. ").context(err));
+        }
+    };
 
     let email = Email::from_json(&stdout)?;
     assert_eq!(email.subject, subject);
