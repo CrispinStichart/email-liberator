@@ -10,7 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 // TODO: Move this back into fetch_mail.rs. Will need to add --catch-up-file option for
-// testing purposes
+// testing purposes. Possibly put catch up file logic in lib.rs?
 
 #[derive(Parser, Debug)]
 #[clap(author, version)]

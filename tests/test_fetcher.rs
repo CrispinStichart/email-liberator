@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use assert_cmd;
-use mail_client::binary_libs::fetcher_libs;
+use mail_client::binary_libs::fetcher_lib;
 use mail_client::email::Email;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -141,24 +141,26 @@ fn run_catch_up(email: &str) -> Result<Vec<String>> {
 #[test]
 fn test_catchup() -> Result<()> {
     let email = random_email();
-    fetcher_libs::write_last_message_id(0)?;
+    // write the ID file. UIDs start at 1, so fetching from zero will get
+    // everything in the mailbox.
+
+    fetcher_lib::write_last_message_id(0)?;
+    // should be nothing to start out with
+    assert_eq!(0, run_catch_up(&email)?.len());
 
     send_email(None, Some(&email), None, None)?;
 
-    sleep(Duration::from_millis(500));
     assert_eq!(1, run_catch_up(&email)?.len());
 
     send_email(None, Some(&email), None, None)?;
     send_email(None, Some(&email), None, None)?;
     send_email(None, Some(&email), None, None)?;
 
-    sleep(Duration::from_millis(500));
     assert_eq!(3, run_catch_up(&email)?.len());
 
     send_email(None, Some(&email), None, None)?;
     send_email(None, Some(&email), None, None)?;
 
-    sleep(Duration::from_millis(500));
     assert_eq!(2, run_catch_up(&email)?.len());
 
     // now it shouldn't see any because it's all caught up
@@ -177,12 +179,12 @@ fn test_help() {
 
 #[test]
 fn test_get_last_message_id() -> Result<()> {
-    fetcher_libs::write_last_message_id(0)?;
-    let id = fetcher_libs::get_last_message_id()?;
+    fetcher_lib::write_last_message_id(0)?;
+    let id = fetcher_lib::get_last_message_id()?;
     assert_eq!(0, id.unwrap());
 
-    fetcher_libs::write_last_message_id(42)?;
-    let id = fetcher_libs::get_last_message_id()?;
+    fetcher_lib::write_last_message_id(42)?;
+    let id = fetcher_lib::get_last_message_id()?;
     assert_eq!(42, id.unwrap());
     Ok(())
 }

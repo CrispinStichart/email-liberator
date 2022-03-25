@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use mail_client::binary_libs::fetcher_libs::*;
+use mail_client::binary_libs::fetcher_lib::*;
 use mail_client::config;
 use std::thread;
 use std::time::Duration;

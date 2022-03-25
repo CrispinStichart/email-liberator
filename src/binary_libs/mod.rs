@@ -1,1 +1,1 @@
-pub mod fetcher_libs;
+pub mod fetcher_lib;
