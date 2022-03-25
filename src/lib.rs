@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 use anyhow::{Context, Result};
 use email::Email;
 use imap::extensions::idle::SetReadTimeout;

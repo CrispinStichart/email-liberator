@@ -163,14 +163,10 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
         })
         .unwrap();
 
-    // Check the current last seen
-    let mut last_seen = last_seen_uid
-        .lock()
-        .unwrap();
-
     // If it's None, that means there was no last_message_id, so we obtain it by
     // fetching * (the most recent message).
-    if last_seen.is_none() {
+    if let Ok(mut last_seen) = last_seen_uid.lock()
+        && last_seen.is_none() {
         *last_seen = Some(
             if let Some(most_recent) = session
                 .uid_fetch("*", "UID")
@@ -187,17 +183,9 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
             },
         )
     }
-    // release the mutex lock
-    drop(last_seen);
-
     loop {
         // Check exit status, set by SIGINT/Ctrl-C
-        eprintln!(
-            "Exit loop is: {}",
-            exit_loop.load(atomic::Ordering::Relaxed)
-        );
         if exit_loop.load(atomic::Ordering::Relaxed) {
-            eprintln!("Exiting loop!");
             break;
         }
 

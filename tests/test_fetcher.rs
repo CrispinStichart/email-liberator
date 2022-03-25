@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use assert_cmd;
 use mail_client::binary_libs::fetcher_lib;
 use mail_client::email::Email;
@@ -7,6 +7,7 @@ use std::io::BufReader;
 use std::process::Child;
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -16,13 +17,12 @@ use utils::*;
 
 const TIMEOUT_SECS: u64 = 10;
 
-#[cfg(target_os = "unix")]
+#[cfg(target_os = "linux")]
 use libc;
 
-/// Attempts to kill the child gracefully. This is mainly
-/// for the infinite loops in fetcher. If we hard-kill
-/// the child, we don't get code coverage.
-#[cfg(target_os = "unix")]
+/// Attempts to kill the child gracefully. This is mainly for the infinite loops
+/// in fetcher. If we hard-kill the child, we don't get code coverage.
+#[cfg(target_os = "linux")]
 pub fn kill_child(child: &mut Child) -> Result<()> {
     unsafe {
         libc::kill(child.id() as i32, libc::SIGTERM);
@@ -30,14 +30,15 @@ pub fn kill_child(child: &mut Child) -> Result<()> {
     sleep(Duration::from_secs(TIMEOUT_SECS));
     if child
         .try_wait()
-        .is_none()
+        .is_err()
     {
         child.kill()?
     }
     Ok(())
 }
 
-#[cfg(not(target_os = "unix"))]
+/// Windows doesn't have signals.
+#[cfg(not(target_os = "linux"))]
 pub fn kill_child(child: &mut Child) -> Result<()> {
     child.kill()?;
     Ok(())
@@ -47,13 +48,15 @@ pub fn kill_child(child: &mut Child) -> Result<()> {
 fn test_idle() -> Result<()> {
     let username = random_email();
 
+    // I started writing this on windows. D:
     let program = if cfg!(unix) {
         "./target/debug/fetcher"
     } else {
         ".\\target\\debug\\fetcher.exe"
     };
-    let mut cmd = Command::new(program);
 
+    // Launch the program in an entirely seperate process.
+    let mut cmd = Command::new(program);
     let mut child = cmd
         .stdout(Stdio::piped())
         .args(&[
@@ -67,41 +70,60 @@ fn test_idle() -> Result<()> {
         ])
         .spawn()?;
 
+    // Grab an active pipe to the process's stdout.
     let stdout = child
         .stdout
         .take()
         .unwrap();
 
-    let mut reader = BufReader::new(stdout);
+    // Use a thread to read stdout and read a line.
     let (tx, rx) = mpsc::channel();
-
+    // We have to use an Arc to ensure that tx isn't dropped when the
+    // thread finishes, because then the recv will fail.
+    let tx = Arc::new(Mutex::new(tx));
+    let tx2 = tx.clone();
     thread::spawn(move || {
+        let mut reader = BufReader::new(stdout);
         let mut buf = String::new();
         reader
             .read_line(&mut buf)
             .unwrap();
-        tx.send(buf)
+        tx2.lock()
+            .unwrap()
+            .send(buf)
             .unwrap();
     });
 
-    sleep(Duration::from_millis(100));
+    // This was an attempt at delaying the sending of an email until process was
+    // up and running. However: recent tests have show that it takes a little
+    // under a second before the process actually gets to the .idle() call,
+    // which means 100ms isn't enough. HOWEVER, it's still working correctly,
+    // so... I don't know. Maybe greenmail takes even longer than that to
+    // recieve an email?
+    // sleep(Duration::from_millis(100));
 
+    // True story.
     let subject = "This test took me 3 hours to write :(";
     send_email(None, Some(&username), Some(subject), None)?;
 
+    // Here's why we used a thread to read stdout -- we want to be able to time
+    // out if we don't get a response from the client.
     let stdout = rx.recv_timeout(Duration::from_secs(TIMEOUT_SECS))?;
 
     let email = Email::from_json(&stdout)?;
     assert_eq!(email.subject, subject);
 
+    // Attempt to gracefully kill the child. Important for getting accurate code
+    // coverage; LLVM can't record coverage if the program crashes.
     kill_child(&mut child)?;
 
     Ok(())
 }
 
+// Run program with the --catch-up argument and return the output.
 fn run_catch_up(email: &str) -> Result<Vec<String>> {
+    // Spawn the process and wait for output.
     let cmd = assert_cmd::Command::cargo_bin("fetcher");
-
     let output = cmd
         .expect("Couldn't find fetch mail program")
         .args(&[
@@ -116,26 +138,7 @@ fn run_catch_up(email: &str) -> Result<Vec<String>> {
         ])
         .output()?;
 
-    if output.stderr.len() > 0 {
-        return Err(anyhow!(
-            "Error from catch-up execution:\n{}",
-            String::from_utf8(output.stderr)?
-        ));
-    }
-
-    let stdout = String::from_utf8(
-        output
-            .stdout
-            .to_vec(),
-    )?;
-
-    let lines = stdout
-        .to_owned()
-        .lines()
-        .map(|s| s.to_string())
-        .collect::<Vec<String>>();
-
-    Ok(lines)
+    parse_output(output)
 }
 
 #[test]

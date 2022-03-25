@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use imap::extensions::idle::SetReadTimeout;
 use imap::Session;
 use lettre;
@@ -7,6 +7,7 @@ use lettre_email;
 use mail_client::config;
 use native_tls;
 use std::io::{Read, Write};
+use std::process;
 
 use uuid::Uuid;
 
@@ -85,4 +86,33 @@ pub fn smtp(user: &str) -> lettre::SmtpTransport {
     .unwrap()
     .credentials(creds)
     .transport()
+}
+
+/// If there's anything in stderr, we return it as an error. Otherwise, return
+/// the stdout as a list of lines.
+pub fn parse_output(output: process::Output) -> Result<Vec<String>> {
+    // If there's anything in stderr, we assume something went wrong and return
+    // an error message with the contents of stderr.
+    if output.stderr.len() > 0 {
+        return Err(anyhow!(
+            "Error from catch-up execution:\n{}",
+            String::from_utf8(output.stderr)?
+        ));
+    }
+
+    // otherwise, we turn stdout into a string...
+    let stdout = String::from_utf8(
+        output
+            .stdout
+            .to_vec(),
+    )?;
+
+    // ...and split it on linebreaks.
+    let lines = stdout
+        .to_owned()
+        .lines()
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
+
+    Ok(lines)
 }
