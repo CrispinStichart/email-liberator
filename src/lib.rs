@@ -63,6 +63,7 @@ pub fn fetch_email(
     )
 }
 
+// TODO: check result from delete operation to verify that the UID passed in was actually removed.
 pub fn delete(
     uid: u32,
     session: &mut imap::Session<impl Read + Write + SetReadTimeout>,
@@ -72,6 +73,7 @@ pub fn delete(
     Ok(())
 }
 
+// Note: session::uid_mv does not return an error if you give it a non-existant UID.
 pub fn move_email(
     uid: u32,
     mailbox_name: &str,
