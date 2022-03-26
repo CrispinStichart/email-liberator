@@ -67,3 +67,165 @@ Both the CLI arguments and configuration file options are specified in the code 
 I *know* I can just copy and paste a tiny amount of code into a mere three different files, but... it feels bad.
 
 My current plan is to learn more about how macros work. From what I understand right now, I should be able to write a macro that takes two structs as arguments and spits out a combined one.
+
+Update: did a bit of research, and what I wanted to do is not possible. My desire was to be able to do something like this:
+
+```rust
+struct ArgOne {
+  foo: String
+}
+
+struct ArgTwo {
+  bar: u32
+}
+
+merge_structs!("Combined", ArgOne, ArgTwo);
+```
+
+and the macro call would generate:
+
+```rust
+struct Combined {
+  foo: String,
+  bar: u32
+}
+```
+
+However, it turns out that a macro cannot actually inspect a struct. It can only recognize `ArgOne` and `ArgTwo` as types, and can't go any further.
+
+Update update: Okay, so applies to `macro_rules!` defined macros. But there are also *procedural* macros, which are different and have more power. They run during compilation, rather than during... tokenization, I think is the other step?
+
+`derive` macros are procedural.
+
+Okay. Ugh. After some more reading, procedural macros won't work either. Using a derive or attribute macro, I can inspect one struct. However, I can't get a reference to another struct while doing that.
+
+The next option is external code generation. I feel like this is a bit of a code smell, but hear me out.
+
+I'll write a complete settings TOML file, then parse it to generate the rust code I want.
+
+a realistic but minimal example:
+
+```python
+[connection]
+
+username = ""
+password = ""
+
+[fetcher]
+
+# Don't enter idle loop
+no_idle = false
+
+[executor]
+
+# Read from stdin forever, rather than just one line
+looping = false
+```
+
+This will be parsed to generate rust code that looks like this:
+
+```rust
+#[derive(Parser, Debug)]
+#[clap(author, version)]
+pub struct FetcherArgs {
+  #[clap(long)]
+  pub username: Option<String>,
+
+  #[clap(long)]
+  pub password: Option<String>,
+
+  /// Don't enter idle loop
+  #[clap(long)]
+  pub no_idle: bool
+}
+
+impl FetcherArgs {
+  pub fn merge_config(&self, config: Config) -> Config {
+    config::Config {
+      hostname : self.hostname.as_ref().unwrap_or(&config.connection.hostname).clone(),
+      username : self.username.as_ref().unwrap_or(&config.connection.username).clone(),
+      no_idle : self.port.unwrap_or(config.no_idle),
+      ..config
+    }
+  }
+}
+
+#[derive(Parser, Debug)]
+#[clap(author, version)]
+pub struct ExecutorArgs {
+  #[clap(long)]
+  pub username: Option<String>,
+
+  #[clap(long)]
+  pub password: Option<String>,
+
+  /// Read from stdin forever, rather than just one line
+  #[clap(long)]
+  pub looping: bool
+}
+
+impl ExecutorArgs {
+  pub fn merge_config(&self, config: Config) -> Config {
+    config::Config {
+      hostname : self.hostname.as_ref().unwrap_or(&config.connection.hostname).clone(),
+      username : self.username.as_ref().unwrap_or(&config.connection.username).clone(),
+      looping : self.port.unwrap_or(config.looping),
+      ..config
+    }
+  }
+}
+
+pub struct Config {
+  pub username: String,
+  pub password: String,
+  pub no_idle: bool,
+  pub looping: bool
+}
+
+impl struct Config {
+  pub fn new() -> Self {
+    Config {
+      username: "",
+      password: "",
+      no_idle: false,
+      looping: false
+    }
+  }
+}
+```
+
+Look at all that bullshit I won't have to write by hand. Of course, perhaps needing to write all that bullshit is a sign I'm doing something dumb.
+
+I could use sub-commands instead, and pass around the Args struct directly rather than a config struct. I'd have to put everything back into one binary, though...
+
+If I did this the code would look like
+
+```rust
+#[derive(Parser, Debug)]
+#[clap(author, version)]
+pub struct ExecutorArgs {
+  #[clap(long)]
+  pub username: Option<String>,
+
+  #[clap(long)]
+  pub password: Option<String>,
+
+  #[clap(subcommand)]
+  pub command: Commands
+}
+
+#[derive(Subcommand)]
+enum Commands {
+  Fetcher {
+    /// Don't enter idle loop
+    #[clap(long)]
+    pub no_idle: bool
+  },
+  Executor {
+    /// Read from stdin forever, rather than just one line
+    #[clap(long)]
+    pub looping: bool
+  }
+}
+```
+I took a look at how cargo does it, but my brain is mush. It's getting late and I'm getting tired, I'm going to sleep on this before I spend a lot of time on a solution that I end up immediately rewriting.
