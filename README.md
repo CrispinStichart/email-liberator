@@ -15,7 +15,7 @@ This project is a simple email client, intended to be run 24/7 that:
 * advanced filtering beyond what your mail provider offers
   * the reason I built this tool is so that I can filter my emails based on arbitrary regex. Gmail supports custom filters, but these are limited to using Gmail's search syntax, which isn't very sophisticated.
 * backups
-  * you could even have a script to automatically print a hardcopy of every email
+  * you could even have a script to automatically print a hardcopy of every email, just for fun
 * data collection
 * custom notifications
 
