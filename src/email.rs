@@ -1,10 +1,13 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
+use mailparse;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
 #[derive(Serialize, Deserialize)]
 pub struct Email {
-    pub sender: Vec<Address>,
+    /// Sender is a Vec because rfc6854 allows multiple senders, we use an
+    /// option because even no senders at all is allowed.
+    pub sender: Vec<Option<String>>,
     pub subject: String,
     pub body: String,
     pub uid: u32,
@@ -12,14 +15,19 @@ pub struct Email {
 
 #[derive(Serialize, Deserialize)]
 pub struct Address {
+    /// Human readable name, e.g. "Jane Smith"
     pub name: Option<String>,
+    /// Route, I think?
     pub adl: Option<String>,
+    /// The part before the @ sign in an address
     pub mailbox: Option<String>,
+    /// The domain of the address
     pub host: Option<String>,
 }
 
 impl Address {
     fn from_imap_address(address: &imap_proto::Address) -> Result<Address> {
+        // TODO: can I simplify this somehow?
         Ok(Address {
             name: address
                 .name
@@ -34,10 +42,37 @@ impl Address {
                 .as_ref()
                 .and_then(|a| Some(String::from_utf8(a.to_vec()).unwrap())),
             host: address
-                .mailbox
+                .host
                 .as_ref()
                 .and_then(|a| Some(String::from_utf8(a.to_vec()).unwrap())),
         })
+    }
+
+    /// Returns the address as a "normal" email, e.g. bob@gmail.com. The sender
+    /// can theoretically be empty; rfc6854 gives the example of an automated
+    /// system that doesn't support replies. In the real world I don't know how
+    /// much use that sees -- in my experience, people just use a
+    /// no-reply@whatever.com style address.
+    fn to_simple(&self) -> Option<String> {
+        if self
+            .mailbox
+            .is_some()
+            && self.host.is_some()
+        {
+            Some(format!(
+                "{}@{}",
+                &self
+                    .mailbox
+                    .as_ref()
+                    .unwrap(),
+                &self
+                    .host
+                    .as_ref()
+                    .unwrap()
+            ))
+        } else {
+            None
+        }
     }
 }
 
@@ -46,6 +81,15 @@ impl Email {
         let envelope = msg
             .envelope()
             .ok_or(anyhow!("No envlope in fetch"))?;
+
+        let body = msg.body().unwrap();
+        let parsed = mailparse::parse_mail(body)?;
+        let body = parsed
+            .subparts
+            .get(0)
+            .context("uh-oh, looks like it wasn't a multi-part message!")?
+            .get_body()
+            .context(format!("No body in message? WTF? UID={:?}", msg.uid))?;
 
         Ok(Email {
             // jesus christ :|
@@ -57,7 +101,11 @@ impl Email {
                 .unwrap()
                 .as_slice()
                 .iter()
-                .map(|a| Address::from_imap_address(a).expect("Couldn't create address struct"))
+                .map(|a| {
+                    Address::from_imap_address(a)
+                        .expect("Couldn't create address struct")
+                        .to_simple()
+                })
                 .collect(),
             subject: envelope
                 .subject
@@ -65,9 +113,7 @@ impl Email {
                 .and_then(|cow| std::str::from_utf8(cow).ok())
                 .unwrap()
                 .to_string(),
-            body: std::str::from_utf8(msg.body().unwrap())
-                .unwrap()
-                .to_string(),
+            body,
             uid: msg.uid.unwrap(),
         })
     }
@@ -86,10 +132,41 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_json_parsing() -> Result<()> {
-        let input = r#"{"uid": 69, "sender":[{"name":null,"adl":null,"mailbox":"sender","host":"sender"}],"subject":"My first e-mail","body":"Return-Path: <sender@localhost>\r\nReceived: from 172.17.0.1 (HELO DESKTOP-D0BUERJ); Thu Mar 17 18:48:37 UTC 2022\r\nSubject: My first e-mail\r\nTo: <test@greenmail.com>\r\nFrom: <sender@localhost>\r\nDate: Thu, 17 Mar 2022 13:48:37 -0500\r\nMIME-Version: 1.0\r\nMessage-ID: <eb182115-fac3-4bda-9381-3f04084bc8cc.lettre@localhost>\r\nContent-Type: multipart/mixed; boundary=z9Y94WiriL0hfCPAzgC2ohO6XkpuUi\r\n\r\n\r\n--z9Y94WiriL0hfCPAzgC2ohO6XkpuUi\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nHello world from SMTP\r\n\r\n--z9Y94WiriL0hfCPAzgC2ohO6XkpuUi--\r\n\r\n"}"#;
+    fn from_json() -> Result<()> {
+        let input = concat!(
+            r#"{"sender":["sender.bob@gmail.com"],"#,
+            r#""subject":"My first e-mail","#,
+            r#""body":"Hello world from SMTP\r\n\r\n","uid":16}"#
+        );
         let email = Email::from_json(input)?;
         assert_eq!(email.subject, "My first e-mail");
+        assert_eq!(
+            email.sender[0]
+                .as_ref()
+                .unwrap(),
+            "sender.bob@gmail.com"
+        );
+        assert_eq!(email.body, "Hello world from SMTP\r\n\r\n");
+        assert_eq!(email.uid, 16);
+
+        Ok(())
+    }
+
+    #[test]
+    fn to_json() -> Result<()> {
+        let expected_json = concat!(
+            r#"{"sender":["sender.bob@gmail.com"],"#,
+            r#""subject":"My first e-mail","#,
+            r#""body":"Hello world from SMTP\r\n\r\n","uid":16}"#
+        );
+        let email = Email {
+            sender: vec![Some("sender.bob@gmail.com".to_string())],
+            subject: "My first e-mail".to_string(),
+            body: "Hello world from SMTP\r\n\r\n".to_string(),
+            uid: 16,
+        };
+
+        assert_eq!(expected_json, email.to_json()?);
 
         Ok(())
     }

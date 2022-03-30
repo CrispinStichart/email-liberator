@@ -35,7 +35,7 @@ pub struct ImapOptions {
 pub enum Sections {
     FLAGS,
     INTERNALDATE,
-    RFC822,
+    TEXT,
     ENVELOPE,
 }
 

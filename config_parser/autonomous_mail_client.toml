@@ -1,0 +1,29 @@
+[connection]
+
+hostname = "imap.gmail.com"
+username = "crispinstichart" # With or without the '@gmail.com'
+password = "lolno"
+port = 3993
+
+[imap_options]
+
+sections = ["FLAGS", "INTERNALDATE", "RFC822", "ENVELOPE"]
+
+# [fetcher]
+
+# no_idle = false
+# catch_up = false
+
+# [executor]
+
+# loop = false
+
+
+[[scripts]]
+    name = "Test Script "
+    interpreter = "python3.9"
+    location  = "tests/test_echo.py"
+
+# [[scripts]]
+#     name = "blaze it"
+#     location = "don't/care.exe"

@@ -112,16 +112,17 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
     let exit_loop_ctrlc_handler = exit_loop.clone();
     let last_seen_uid = Arc::new(Mutex::new(get_last_message_id()?));
 
-    ctrlc::set_handler(move || {
-        exit_loop_ctrlc_handler.store(true, atomic::Ordering::Relaxed);
-        eprintln!("Got SIGINT, attempting to gracefully shutdown...");
-    })?;
-
     let mut session = login(
         &config
             .lock()
             .unwrap(),
     )?;
+
+    // TODO: hard-kill process if user ctrl-Cs again
+    ctrlc::set_handler(move || {
+        exit_loop_ctrlc_handler.store(true, atomic::Ordering::Relaxed);
+        eprintln!("Got SIGINT, attempting to gracefully shutdown...");
+    })?;
 
     let exit_loop_idle_thread = exit_loop.clone();
     thread::Builder::new()
@@ -134,6 +135,10 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
             )
             .expect("Couldn't open session from within idle thread");
 
+            // TODO: test how imap_rust behaves in seperate threads. I'm seeing an "error: connection
+            // lost" message when I gracefully kill the process. At what point does this happen? When the
+            // idle thread goes out of scope and is dropped? Or is it somehow sharing state with the other
+            // session, and logging out with that one affects this one as well?
             let wait_outcome = idle_session
                 .idle()
                 .wait_while(|response| {
@@ -196,7 +201,7 @@ pub fn idle(config: config::Config, args: &Args) -> Result<()> {
         if _count.is_err() {
             // FIXME: Just ran into a bug where the test runner killed the process, but
             // it never died and just kept printing this.
-            eprintln!("Timed out, restarting loop");
+            // eprintln!("Timed out, restarting loop");
             continue;
         }
 

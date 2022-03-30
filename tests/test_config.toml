@@ -1,10 +1,10 @@
 [connection]
 
-hostname = "greenmail" 
+hostname = "greenmail"
 username = "test@greenmail.com"
 password = "test@greenmail.com"
 port = 3993
 
 [imap_options]
 
-sections = ["FLAGS", "INTERNALDATE", "RFC822", "ENVELOPE"]
+sections = ["FLAGS", "INTERNALDATE", "TEXT", "ENVELOPE"]
