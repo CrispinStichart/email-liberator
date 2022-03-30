@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use imap::extensions::idle::SetReadTimeout;
 use imap::Session;
 use lettre;
@@ -91,9 +91,10 @@ pub fn smtp(user: &str) -> lettre::SmtpTransport {
 /// If there's anything in stderr, we return it as an error. Otherwise, return
 /// the stdout as a list of lines.
 pub fn parse_output(output: process::Output) -> Result<Vec<String>> {
-    // If there's anything in stderr, we assume something went wrong and return
-    // an error message with the contents of stderr.
-    if output.stderr.len() > 0 {
+    if !output
+        .status
+        .success()
+    {
         return Err(anyhow!(
             "Error from catch-up execution:\n{}",
             String::from_utf8(output.stderr)?
@@ -105,7 +106,8 @@ pub fn parse_output(output: process::Output) -> Result<Vec<String>> {
         output
             .stdout
             .to_vec(),
-    )?;
+    )
+    .context("Couldn't stringify stdout")?;
 
     // ...and split it on linebreaks.
     let lines = stdout

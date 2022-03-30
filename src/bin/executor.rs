@@ -37,7 +37,7 @@ fn main() -> Result<()> {
             }
         }
 
-        if args
+        if !args
             .forever
             .unwrap_or(false)
         {

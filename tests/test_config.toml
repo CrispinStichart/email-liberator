@@ -7,4 +7,4 @@ port = 3993
 
 [imap_options]
 
-sections = ["FLAGS", "INTERNALDATE", "TEXT", "ENVELOPE"]
+sections = ["FLAGS", "INTERNALDATE", "RFC822", "ENVELOPE"]

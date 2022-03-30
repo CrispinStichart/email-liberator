@@ -2,6 +2,8 @@ use anyhow::Result;
 use assert_cmd::Command;
 use mail_client::action;
 pub mod utils;
+use std::thread::sleep;
+use std::time::Duration;
 use utils::*;
 
 fn run_act_on_mail(email: &str, input: &str) -> Result<Vec<String>> {
@@ -41,9 +43,9 @@ fn test_delete() -> Result<()> {
 
     let mut session = get_session(Some(&to_email))?;
 
-    assert!(mail_client::fetch_email(1, &mut session).is_ok());
-    assert!(mail_client::fetch_email(2, &mut session).is_err());
-    assert!(mail_client::fetch_email(3, &mut session).is_ok());
+    debug_assert!(mail_client::fetch_email(1, &mut session).is_ok());
+    debug_assert!(mail_client::fetch_email(2, &mut session).is_err());
+    debug_assert!(mail_client::fetch_email(3, &mut session).is_ok());
 
     Ok(())
 }
