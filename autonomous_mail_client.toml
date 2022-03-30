@@ -9,7 +9,14 @@ port = 3993
 
 sections = ["FLAGS", "INTERNALDATE", "RFC822", "ENVELOPE"]
 
+[fetcher]
 
+no_idle = false
+catch_up = false
+
+[executor]
+
+loop = false
 
 
 [[scripts]]

@@ -11,23 +11,37 @@ fn main() -> Result<()> {
 
     let mut session = mail_client::login(&config)?;
 
-    // Read line from stdin.
-    let mut line = String::new();
-    io::stdin().read_line(&mut line)?;
+    loop {
+        // Read line from stdin.
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
 
-    // Convert the line to a Message, crashing if it can't be parsed.
-    let message = action::Message::from_json(&line)?;
+        // Convert the line to a Message, crashing if it can't be parsed.
+        let message = action::Message::from_json(&line)?;
 
-    // TODO: figure out labels. Apperently they're a non-standard Gmail thing.
-    // IMAP shows them as mailboxes, but I'm not sure if gmail respects what
-    // IMAP does with them.
-    for a in &message.actions {
-        match a {
-            action::Action::Move(mailbox_name) => {
-                mail_client::move_email(message.uid, mailbox_name, &mut session)?
+        // Labels: rust-imap doesn't support the non-standard IMAP extension Gmail
+        // has to support labels (and a few other neat Gmail-specific features).
+        // I've opened a ticket on the rust-imap Github page to see what they think
+        // of adding it. Note that Gmail exposes the labels as read-only with
+        // standard IMAP extension by representing labels as mailboxes, and you can
+        // query those mailboxes to see what messages have that label. However,
+        // there's no way to assign a label to a message, or directly see what
+        // labels a message has, without using their extensions.
+        for a in &message.actions {
+            match a {
+                action::Action::Move(mailbox_name) => {
+                    mail_client::move_email(message.uid, mailbox_name, &mut session)?
+                }
+                action::Action::Delete => mail_client::delete(message.uid, &mut session)?,
+                action::Action::Label => todo!(),
             }
-            action::Action::Delete => mail_client::delete(message.uid, &mut session)?,
-            action::Action::Label => todo!(),
+        }
+
+        if args
+            .forever
+            .unwrap_or(false)
+        {
+            break;
         }
     }
 
@@ -56,6 +70,10 @@ pub struct Args {
     /// password for IMAP authentication.
     #[clap(long)]
     pub password: Option<String>,
+
+    /// Don't exit after reading first line of stdin.
+    #[clap(long)]
+    pub forever: Option<bool>,
 }
 
 // Note: https://docs.rs/merge/latest/merge/ exists. Can we use that, plus

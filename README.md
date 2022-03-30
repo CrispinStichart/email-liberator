@@ -44,6 +44,10 @@ This project is actually comprised of three binaries, that can be chained togeth
 
 They will all share the configuration file, but they can also all be used independently in any sort of pipeline you want. For example, you might only use `fetcher` to archive emails, or if you only have one script to run you might omit `runner` and pipe `fetcher` straight to your script.
 
+### Actions Supported
+
+Using the `executor` program, you can delete or move a message. Other actions can be added in the future. Unfortunately, Gmail labels use a non-standard extension to the IMAP protocol that the library I'm using, `rust-imap`, doesn't support. I've taken a look at the code, and it may be within my abilities to add that feature.
+
 # Testing
 
 Since there isn't a lot of "library" code in this project, unit tests aren't much help. Luckily, we can use Greenmail for integration testing. Greenmail is a mail server built for integration testing. Getting Greenmail to work with SSL/TLS in an integration testing environment is a bit tricky; I have [instructions on my blog](https://crispinstichart.github.io/using-SSL-in-greenmail-docker-container/).
@@ -228,4 +232,10 @@ enum Commands {
   }
 }
 ```
-I took a look at how cargo does it, but my brain is mush. It's getting late and I'm getting tired, I'm going to sleep on this before I spend a lot of time on a solution that I end up immediately rewriting.
+
+Another option is to forgo type checking, and store configuration in a hashmap indexed by strings. I'm not a big fan of that. Having these strings be provided by a bunch of `const`s in a module would make it slightly better. I would still have multiple sources of truth, however.
+
+
+I took a look at how cargo does it. In `command_prelude.rs`, they have a common set of arguments defined as a `clap` command, and then the individual binaries call the `subcommand` function, which returns the command builder, and they extend it that way. So I was wrong in my assumption that using subcommands would require one binary. And if fact, this pattern doesn't seem to even require use of subcommands.
+
+Two things about this: One, it uses the builder pattern and not the derive pattern like I'm using. Which I could switch to, absolutely. Two, it still doesn't address the main issue I have, which is sharing information between the config file and the arguments.

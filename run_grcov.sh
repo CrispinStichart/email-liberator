@@ -28,3 +28,6 @@ grcov . --binary-path ./target/debug/ -s . -t html \
 
 # these files are annoying an useless after we generate the report.
 rm -f *.profraw
+
+# print the link so I can be lazy and click on it
+echo file://"$(realpath coverage/index.html)"

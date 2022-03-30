@@ -78,7 +78,14 @@ pub fn delete(
     // because the server has to support QRESYNC in order to get UIDs, which
     // neither greenmail or even gmail supports. I can get the sequence IDs that
     // were deleted, but they're useless to me unless I refactor a bunch of
-    // stuff to match UIDs to sequence numbers.
+    // stuff to match UIDs to sequence numbers. ALSO, I  just noticed the "Auto
+    // Expunge" setting in Gmail that's turned on by default. It will actually
+    // expunge the message as soon as the flag is set, so the client will never
+    // get any information back from an expunge response. That leaves me with
+    // two options: one, do a fetch and see if it fails; two, have the idle loop
+    // actually watch for expunges and try to synchronize that somehow with the
+    // other threads... yeah, that sounds like a bad idea.
+
     // if !deleted
     //     .uids()
     //     .collect::<Vec<u32>>()[..]
