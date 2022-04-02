@@ -1,11 +1,17 @@
 use anyhow::anyhow;
 use anyhow::Result;
 use clap::Parser;
+use config::EmailField;
 use mail_client::action;
 use mail_client::config;
+use mail_client::email;
 use std::io;
 use std::process::Command;
 use which::which;
+
+// TODO: option to limit the input to the script to one field, for example
+//       just the body, or just the header. Useful for integrating with
+//       external tools without needing a wrapper script.
 fn main() -> Result<()> {
     let args = Args::parse();
     let config = mail_client::config::get_config(&args.config)?;
@@ -24,7 +30,13 @@ fn main() -> Result<()> {
             // Scripts can use stop if they do something like delete
             // an email that will cause scripts later in the pipeline
             // to fail.
-            let output = call_script(script, &line)?;
+            let output = call_script(
+                script,
+                &line,
+                script
+                    .email_field
+                    .as_ref(),
+            )?;
             if let Some(msg_str) = output {
                 let stop = output_message(&msg_str)?;
                 if stop {
@@ -47,7 +59,26 @@ fn main() -> Result<()> {
 /// Call an external program and return the stdout wrapped in Ok(), or
 /// the stderr wrapped in an Err() if the program exits with a non-zero
 /// exit code.
-fn call_script(script: &config::Script, json: &str) -> Result<Option<String>> {
+fn call_script(
+    script: &config::Script,
+    json: &str,
+    email_field: Option<&EmailField>,
+) -> Result<Option<String>> {
+    let email = email::Email::from_json(json)?;
+
+    let cmd_input = match email_field {
+        Some(email_field) => match email_field {
+            EmailField::ADDRESS => todo!(),
+            EmailField::SUBJECT => email.subject,
+            EmailField::BODY => email.body,
+            EmailField::UID => email
+                .uid
+                .to_string(),
+        },
+
+        None => json.to_string(),
+    };
+
     let mut command = if let Some(interpreter) = &script.interpreter {
         let pb = which(interpreter).unwrap();
         let executable = pb.as_os_str();
@@ -58,7 +89,7 @@ fn call_script(script: &config::Script, json: &str) -> Result<Option<String>> {
         Command::new(&script.location)
     };
 
-    command.arg(json);
+    command.arg(cmd_input);
 
     let output = command.output()?;
 

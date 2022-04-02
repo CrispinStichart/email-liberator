@@ -24,6 +24,15 @@ pub struct Script {
     pub interpreter: Option<String>,
     pub location: String,
     pub sortkey: Option<i32>,
+    pub email_field: Option<EmailField>,
+}
+
+#[derive(Deserialize, Debug)]
+pub enum EmailField {
+    ADDRESS,
+    SUBJECT,
+    BODY,
+    UID,
 }
 
 #[derive(Deserialize, Debug)]

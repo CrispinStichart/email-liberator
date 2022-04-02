@@ -8,3 +8,24 @@ port = 3993
 [imap_options]
 
 sections = ["FLAGS", "INTERNALDATE", "RFC822", "ENVELOPE"]
+
+
+[fetcher]
+
+no_idle = false
+catch_up = false
+
+[executor]
+
+loop = false
+
+[[scripts]]
+    name = "Delete Political Spam"
+    interpreter = "python3"
+    location  = "tests/full-pipeline-test/scripts/delete_political_spam.py"
+
+[[scripts]]
+    name = "Word Counter"
+    interpreter = "python3"
+    location  = "tests/full-pipeline-test/scripts/word_counter.py"
+    email_field = "BODY"
